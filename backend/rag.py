@@ -1,17 +1,44 @@
+# rag.py
+import os
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-with open("seed_notes.txt", "r") as f:
-    NOTES = f.read().split("\n")
+NOTES_FILE = "seed_notes.txt"
 
-def retrieve_relevant_chunks(query, top_k=3):
-    vectorizer = TfidfVectorizer()
-    vectors = vectorizer.fit_transform(NOTES + [query])
-    notes_vecs = vectors[:-1]
-    query_vec = vectors[-1]
+# -----------------------------
+# Load notes file
+# -----------------------------
+def load_notes():
+    if not os.path.exists(NOTES_FILE):
+        return []
 
-    sims = notes_vecs @ query_vec.T
-    sims = sims.toarray().flatten()
+    with open(NOTES_FILE, "r", encoding="utf-8") as f:
+        text = f.read()
 
-    idxs = np.argsort(sims)[::-1][:top_k]
-    return "\n".join([NOTES[i] for i in idxs])
+    # Split into chunks (paragraph-based)
+    chunks = [c.strip() for c in text.split("\n\n") if c.strip()]
+    return chunks
+
+
+notes = load_notes()
+vectorizer = TfidfVectorizer().fit(notes)
+note_vectors = vectorizer.transform(notes)
+
+
+# -----------------------------
+# RAG Retrieval
+# -----------------------------
+def get_relevant_chunks(question: str, top_k=2):
+    if not notes:
+        return ""  # file missing = return safe empty text
+
+    q_vec = vectorizer.transform([question])
+    scores = (note_vectors * q_vec.T).toarray().ravel()
+
+    top_indices = np.argsort(scores)[-top_k:]
+    top_chunks = [notes[i] for i in top_indices if scores[i] > 0]
+
+    if not top_chunks:
+        return "No directly relevant notes found."
+
+    return "\n\n".join(top_chunks)

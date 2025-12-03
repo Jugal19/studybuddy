@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-scikit-learn
-numpy
 requests
-wikipedia
+numpy
+scikit-learn

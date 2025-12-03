@@ -1,12 +1,19 @@
-import json, requests
+import json
+import requests
 
-tests = json.load(open("tests.json"))
+with open("tests.json", "r") as f:
+    tests = json.load(f)
+
 passed = 0
 
 for t in tests:
-    r = requests.post("http://127.0.0.1:8000/quiz", json={"topic": t["topic"]})
-    data = r.json()
-    ok = t["expect"] in json.dumps(data).lower()
-    if ok: passed += 1
+    res = requests.post(
+        "http://127.0.0.1:8000/chat",
+        json={"message": t["input"], "subject": t["subject"]}
+    ).json()
 
-print(f"Passed {passed}/{len(tests)} tests ({passed/len(tests)*100:.1f}%)")
+    reply = res.get("reply", "").lower()
+    if t["expect"].lower() in reply:
+        passed += 1
+
+print(f"Pass rate: {passed}/{len(tests)} ({passed/len(tests)*100:.1f}%)")

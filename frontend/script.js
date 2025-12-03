@@ -1,38 +1,69 @@
-document.getElementById("go").onclick = async () => {
-    const topic = document.getElementById("topic").value;
-    const out = document.getElementById("out");
+const chatWindow = document.getElementById("chat-window");
+const input = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+const subjectSelect = document.getElementById("subject-select");
 
-    if (!topic.trim()) {
-        out.innerText = "Please enter a topic.";
-        return;
-    }
+function addMessage(text, sender = "user") {
+    const msg = document.createElement("div");
+    msg.classList.add("msg", sender);
 
-    out.innerText = "Generating questions...\nThis may take a few seconds.";
+    chatWindow.appendChild(msg);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
 
-    try {
-        const response = await fetch("http://127.0.0.1:8000/quiz", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topic })
-        });
+    if (sender === "bot") {
+        let i = 0;
 
-        const data = await response.json();
-
-        // If error returned
-        if (data.error) {
-            out.innerText = "Error: " + data.error;
-            return;
+        function typeChar() {
+            if (i < text.length) {
+                msg.textContent += text.charAt(i);
+                i++;
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+                requestAnimationFrame(typeChar);
+            }
         }
 
-        // Render in clean formatted list
-        out.innerHTML = "";
-        data.questions.forEach(question => {
-            const p = document.createElement("p");
-            p.textContent = question;
-            out.appendChild(p);
+        requestAnimationFrame(typeChar);
+    } else {
+        msg.textContent = text;
+    }
+}
+
+async function sendMessage() {
+    const message = input.value.trim();
+    const subject = subjectSelect.value;
+
+    if (!message) return;
+
+    addMessage(message, "user");
+
+    input.value = "";
+
+    try {
+        const res = await fetch("http://127.0.0.1:8000/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                message: message,
+                subject: subject
+            })
         });
 
-    } catch (e) {
-        out.innerText = "Error contacting backend. Make sure FastAPI is running.";
+        const data = await res.json();
+
+        if (data.reply) {
+            addMessage(data.reply, "bot");
+        } else {
+            addMessage("⚠ Error: " + (data.error || "Unknown issue."), "bot");
+        }
+
+    } catch (err) {
+        addMessage("Server unreachable 🛑\nCheck backend.", "bot");
+        console.error(err);
     }
-};
+}
+
+sendBtn.addEventListener("click", sendMessage);
+
+input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendMessage();
+});
