@@ -9,17 +9,20 @@ from datetime import datetime
 # ---------------------------------------------------------
 # MODEL + OLLAMA SETTINGS
 # ---------------------------------------------------------
-MODEL = "gemma:2b-instruct"
-OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
+import os
+from rag import get_relevant_chunks
+
+MODEL = os.getenv("MODEL", "gemma:2b-instruct")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
 
 app = FastAPI()
 
 # ---------------------------------------------------------
-# CORS (needed for your frontend)
+# CORS (needed for your frontend + file:// mode)
 # ---------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],     # allows file:/// access
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,7 +34,6 @@ app.add_middleware(
 class ChatInput(BaseModel):
     message: str
     subject: str   # "math", "cs", "linear algebra", "auto"
-
 
 # -----------------------------------------------------------
 # Safety rules
@@ -58,7 +60,6 @@ Rules:
 - If asked harmful things, politely refuse.
 """
 
-
 # -----------------------------------------------------------
 # Auto subject detection
 # -----------------------------------------------------------
@@ -78,7 +79,6 @@ def auto_detect_subject(msg: str):
 
     return "math"  # fallback default
 
-
 # -----------------------------------------------------------
 # Call Ollama
 # -----------------------------------------------------------
@@ -89,15 +89,17 @@ def call_ollama(prompt: str):
             json={"model": MODEL, "prompt": prompt, "stream": False},
             timeout=60
         )
+
+        # Sometimes Ollama returns incomplete JSON → safe parse
         data = res.json()
         return data.get("response") or data.get("output") or "Unexpected response from model."
+
     except Exception as e:
         print("OLLAMA ERROR:", e)
         return "Sorry, I couldn't connect to the AI model."
 
-
 # -----------------------------------------------------------
-# Chat endpoint
+# Chat endpoint (RAG ENABLED)
 # -----------------------------------------------------------
 @app.post("/chat")
 def chat(req: ChatInput):
@@ -121,13 +123,12 @@ def chat(req: ChatInput):
         "cs": "You are a computer science tutor. Explain using Python-like pseudocode.",
         "linear algebra": "You are a linear algebra tutor. Use vectors and matrices.",
     }
-
     style = SUBJECT_STYLE.get(subject, "You are a helpful tutor.")
 
     # ------------------------------------------------------
-    # RAG DISABLED (prevents freeze / errors)
+    # RAG ENABLED HERE
     # ------------------------------------------------------
-    context = ""
+    context = get_relevant_chunks(user_msg)
 
     # Build final LLM prompt
     final_prompt = f"""
@@ -147,15 +148,21 @@ Explain clearly and step-by-step.
 
     reply = call_ollama(final_prompt)
 
-    # Telemetry logging
+    # ------------------------------------------------------
+    # Telemetry Logging (pathway = RAG)
+    # ------------------------------------------------------
     log = {
         "timestamp": str(datetime.now()),
         "latency_ms": int((time.time() - start) * 1000),
         "subject": subject,
         "user_message": user_msg,
-        "pathway": "NO_RAG",
+        "pathway": "RAG",
     }
-    with open("telemetry.log", "a") as f:
-        f.write(json.dumps(log) + "\n")
+
+    try:
+        with open("telemetry.log", "a") as f:
+            f.write(json.dumps(log) + "\n")
+    except:
+        pass
 
     return {"reply": reply}

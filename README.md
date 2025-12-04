@@ -1,196 +1,132 @@
-# StudyBuddy – LLM Tutor with RAG, Safety, and Evaluation  
-**Assignment 2 – CSCI Topics in Computer Science 1**
+# StudyBuddy – Assignment 2 (LLM App)
 
-This project is a locally-running LLM tutor application called **StudyBuddy**.  
-It uses a small open-source model (Gemma 2B) running through **Ollama**, and includes:
-
-- A FastAPI backend  
-- A simple HTML/CSS/JavaScript front-end  
-- RAG (Retrieval-Augmented Generation) using course notes  
-- Safety guardrails  
-- Telemetry logging  
-- Offline evaluation using a test suite (`tests.json`)  
-- A reproducible environment with requirements.txt and seed files
+StudyBuddy is a lightweight local LLM-powered tutor for math, CS, and linear algebra.  
+It supports Retrieval-Augmented Generation (RAG), includes guardrails, telemetry,
+and an offline evaluation suite, and runs fully locally using Ollama.
 
 ---
 
-## 🚀 Features Overview
+## 🚀 Features
 
-### ✅ 1. **LLM Response Generation**
-The backend sends prompts to a local LLM (`gemma:2b-instruct`) via Ollama’s REST API.
+### ✔ Core LLM Feature
+Users type a question into the frontend and receive a structured explanation generated
+by a local LLM (Gemma 2B). The backend applies:
+- A controlled system prompt
+- Subject detection (math / CS / linear algebra)
+- Safety guardrails
+- Optional RAG to improve grounding
 
-### ✅ 2. **RAG — Retrieval-Augmented Generation**
-Before answering:
-1. The user's message is embedded  
-2. Compared to preloaded chunks from `seed_notes.txt`  
-3. Top relevant chunks are added to the prompt  
+### ✔ Enhancement: RAG (Retrieval-Augmented Generation)
+Relevant chunks are retrieved from `seed_notes.txt` using TF-IDF + cosine similarity.
+The top-scoring chunks are injected into the prompt before sending to the LLM.
 
-This improves factual accuracy.
+### ✔ Safety Guardrails
+- Prompt-injection filter (blocks “ignore previous…” etc.)
+- Input length limit (max 500 chars)
+- CORS restrictions
+- Fallback error messages
+- JSON-safe response handling
 
-### ✅ 3. **Safety Guardrails**
-Implemented safety includes:
-- Prompt-injection detection  
-- Forbidden keywords filter  
-- Message length limits  
-- System prompt rules (never reveal system prompt, stay in tutor mode)
-
-### ✅ 4. **Auto Subject Detection**
-If the user chooses **subject: auto**, the backend assigns:
-- **linear algebra**  
-- **math**  
-- **computer science**  
-
-Based on keyword matching.
-
-### ✅ 5. **Offline Evaluation**
-`run_tests.py` loads `tests.json` and measures:
-- Quality of model answers  
-- Consistency  
-- Similarity to expected output  
-
-Output appears in console.
-
-### ✅ 6. **Telemetry Logging**
-Every `/chat` request logs:
+### ✔ Telemetry
+Each request logs:
 - Timestamp  
-- Latency (ms)  
-- Subject pathway  
-- User message  
-- Whether RAG was used  
+- Latency  
+- Subject  
+- User question  
+- Pathway (`"RAG"`)  
 
-Saved to `telemetry.log`.
+Stored in `telemetry.log`.
 
----
-
-## 📁 Project Structure
-backend/
-│── main.py # FastAPI backend
-│── rag.py # Embeddings + similarity search
-│── requirements.txt # Python dependencies
-│── seed_notes.txt # Course notes for RAG
-│── tests.json # Evaluation cases
-│── run_tests.py # Evaluates model performance
-│── telemetry.log # (auto-generated) logs
-│── .env.example # Environment variables
-│── run.sh # One-command run script
-│── venv/ # Virtual environment (ignored)
-frontend/
-│── index.html
-│── script.js
-│── styles.css
+### ✔ Offline Evaluation
+A `tests.json` file (≥15 tests) and a runner script `run_tests.py`
+evaluate correctness using simple keyword pattern matching.
 
 ---
 
-## 🧩 Installation & Setup
+## 📦 Project Structure
 
-### 1️⃣ Install Python environment
-```bash
-python3 -m venv venv
-source venv/bin/activate
+---
+studybuddy/
+├── backend/
+│ ├── main.py
+│ ├── rag.py
+│ ├── seed_notes.txt
+│ ├── telemetry.log
+│ ├── tests.json
+│ ├── run_tests.py
+│ ├── requirements.txt
+│ ├── .env.example
+│ └── (optional venv)
+│
+└── frontend/
+├── index.html
+├── script.js
+└── styles.css
+---
+
+
+---
+
+# 🛠 Installation & Running the App
+
+## 1️⃣ Backend Setup (FastAPI + Ollama)
+
+### Install dependencies
+```
+cd backend
 pip install -r requirements.txt
+```
+
+### Start the backend
+`uvicorn main:app --reload`
 
 
-2️⃣ Install Ollama
-
-For Linux:
-
-curl https://ollama.ai/install.sh | sh
-
-3️⃣ Pull the model
-ollama pull gemma:2b-instruct
-
-4️⃣ Confirm Ollama is running
-systemctl status ollama
+### Make sure Ollama is running in the background  
+Olama model pull:
+`ollama pull gemma:2b-instruct`
 
 
-Backend expects Ollama at:
+---
 
-http://localhost:11434
+## 2️⃣ Frontend (No Live Server Needed)
 
-▶️ One-Command Run
+### 🚨 IMPORTANT NOTE ABOUT LIVE SERVER (BUG WARNING)
 
-Activate virtual environment and start FastAPI:
+Visual Studio Code's Live Server **automatically reloads the page** when:
+- Backend responses are slow (e.g., 10–20 seconds from Ollama)
+- Files change
+- The browser detects a stalled request  
+- Long-running AI responses occur
 
-sh run.sh
+This causes the **entire chat to refresh** and messages disappear.
 
+### ✅ FIX: Open index.html *directly* from the filesystem
 
-If Windows (PowerShell):
+Instead of Live Server, use:
 
-./run.ps1
+1. Navigate to the `frontend` folder  
+2. **Double-click `index.html`**, or open it in your browser via:
 
-
-This launches the server at:
-
-http://127.0.0.1:8000
-
-
-Open the frontend (index.html) using Live Server or any static server.
-
-🎯 How RAG Works (Summary)
-
-seed_notes.txt → loaded at startup
-
-Notes → split into chunks
-
-Each chunk → embedded via embedding model
-
-Query → embedded
-
-Top chunks selected using cosine similarity
-
-Inserted into LLM prompt under Relevant course notes
-
-If no relevant chunks exist, the bot still answers using its base model.
-
-🔐 Safety Design
-
-Rejects prompt injections (ignore previous, jailbreak, etc.)
-
-Filters harmful / manipulative instructions
-
-Rejects extremely long messages
-
-System prompt enforces tutor mode & safe behaviour
-
-📊 Running Offline Evaluation
-
-You can evaluate the model with:
-
-python run_tests.py
+file:///path/to/studybuddy/frontend/index.html
 
 
-This prints:
+This is the intended way to run the frontend because:
+- Our backend CORS allows file:// origin  
+- No auto-refresh  
+- No disappearing messages  
+- Works consistently with Ollama  
 
-For each test: pass/fail + similarity score
+> **Professor:** Please open `index.html` from the folder, not Live Server,
+> to avoid the known Live Server auto-reload bug with long-running LLM responses.
 
-A final average performance score
+---
 
-🛠 Environment Variables
+# 🧪 Offline Evaluation (Required for Assignment)
 
-.env.example shows default values:
+The `tests.json` file contains ≥15 tests.  
+Run:
 
-MODEL=gemma:2b-instruct
-OLLAMA_URL=http://localhost:11434/api/generate
-
-
-Create your own .env file:
-
-cp .env.example .env
-
-🎥 Video Requirements (Not included)
-
-You still need to record a 3–5 minute demo video:
-
-What your app does
-
-How to use it
-
-Architecture explanation
-
-Show tests & RAG
-
-👤 Author
-
-Jugal Patel
-Ontario Tech University
-StudyBuddy – Assignment 2
+```
+cd backend
+python3 run_tests.py
+```

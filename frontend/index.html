@@ -13,7 +13,7 @@
         <div id="chat-window" class="chat-window"></div>
 
         <div class="input-area">
-            <input id="message-input" type="text" placeholder="Type your question..." />
+            <input id="message-input" autocomplete="off" placeholder="Type your question..." />
             <select id="subject-select">
                 <option value="auto">Auto Detect</option>
                 <option value="math">Math</option>
@@ -23,6 +23,20 @@
             <button id="send-btn">Send</button>
         </div>
     </div>
+
+    <!-- MathJax CONFIG -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+
+    <!-- MathJax ENGINE -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
 
     <script src="script.js"></script>
 </body>
